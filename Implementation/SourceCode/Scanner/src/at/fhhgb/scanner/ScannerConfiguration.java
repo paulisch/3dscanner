@@ -11,7 +11,7 @@ public class ScannerConfiguration {
 	public static final int MAX_SPEED                   = 600;
 	public static final int DEFAULT_SPEED_MANUAL        = 280;
 	public static final int DEFAULT_SPEED_SCAN_FORWARD  = 200;
-	public static final int DEFAULT_SPEED_SCAN_BACKWARD = 350;
+	public static final int DEFAULT_SPEED_SCAN_BACKWARD = 310;
 	public static final boolean DEFAULT_GO_BACK         = true;
 	public static final String DEFAULT_IP               = "10.0.1.1";
 	public static final String DEFAULT_PORTS_MOTORS[]   = new String[] { "B", "C" };

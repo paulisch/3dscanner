@@ -11,6 +11,7 @@ public class ScannerObservable extends Observable {
 	private long currentTime = -1;
 	private long startTime = -1;
 	private boolean isScanning = false;
+	private boolean shouldResetBrick = false;
 	
 	//Connection state
 	private boolean isConnected = false;
@@ -63,6 +64,14 @@ public class ScannerObservable extends Observable {
 		this.isScanning = isScanning;
 		setChanged();
 		notifyObservers();
+	}	
+
+	public boolean isShouldResetBrick() {
+		return shouldResetBrick;
+	}
+
+	public void setShouldResetBrick(boolean shouldResetBrick) {
+		this.shouldResetBrick = shouldResetBrick;
 	}
 
 	public boolean isConnected() {
@@ -85,15 +94,15 @@ public class ScannerObservable extends Observable {
 		notifyObservers();
 	}
 	
-	public int getProgress() {
-		float progress = ((float)currentTime - startTime) / duration;
+	public double getProgress() {
+		double progress = (currentTime - startTime) / (double)duration;
 		if (progress < 0) {
 			progress = 0;
 		}
 		else if (progress > 1) {
 			progress = 1;
 		}
-		return (int)(progress * 100);
+		return progress;
 	}
 	
 	public int getTimePassed() {

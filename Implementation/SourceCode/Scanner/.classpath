@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.7"/>
-	<classpathentry kind="con" path="org.lejos.ev3.ldt.LEJOS_EV3_LIBRARY_CONTAINER"/>
 	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/Scanner/lib/commons-cli.jar"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/Scanner/lib/dbusjava.jar"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/Scanner/lib/ev3classes.jar"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/Scanner/lib/ev3tools.jar"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/Scanner/lib/jcommon.jar"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/Scanner/lib/jfreechart.jar"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/Scanner/lib/jsch-0.1.50.jar"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/Scanner/lib/opencv-2411.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
