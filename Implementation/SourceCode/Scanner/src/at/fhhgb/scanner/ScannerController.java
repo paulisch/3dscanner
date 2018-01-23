@@ -1,12 +1,15 @@
 package at.fhhgb.scanner;
 
 import java.awt.AWTException;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.MouseInfo;
 import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.Robot;
 import java.awt.Toolkit;
 import java.awt.event.InputEvent;
+import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -24,6 +27,10 @@ import lejos.remote.ev3.RMIRegulatedMotor;
 import lejos.remote.ev3.RemoteEV3;
 
 public class ScannerController {
+	
+	private static final int ATTEMPTS_MOUSE_MOVE = 10;
+	private static final Color SENSE_COLOR_ACTIVE = new Color(0, 174, 240);
+	private static final Color SENSE_COLOR_DEFAULT = new Color(106, 106, 106);
 	
 	private static final int DELAY_SENSE_SCAN = 3500;
 	private static final int PROGRESS_UPDATE_RATE = 30;
@@ -72,9 +79,10 @@ public class ScannerController {
 						System.out.println("Connecting...");
 						scannerObservable.setConnecting(brickConnecting);
 						closeMotors();
-						motors = new ArrayList<>(configuration.getMotorsCount());
 						brick = new RemoteEV3(configuration.getIp());
 						brick.setDefault();
+						
+						motors = new ArrayList<>(configuration.getMotorsCount());
 						for(String motorPort : configuration.getPortsMotors()) {
 							motors.add(brick.createRegulatedMotor(motorPort, 'L'));
 						}
@@ -233,53 +241,53 @@ public class ScannerController {
 					return;
 				}
 				
-				//Play drive back indicator
-				playDoubleBeep();
-				
-				//Wait again
-				try {
-					Thread.sleep(2000);
-				} catch (InterruptedException e) {
-					System.out.println("Drive back was interrupted.");
-					isScanRunning = false;
-					return;
-				}
-				
-				//Start driving back
-				int driveBackDuration = configuration.getScanDistanceWithOffset() / configuration.getSpeedScanBackward();
-				startMotors(configuration.getSpeedScanBackward(), false);
-				startTime = System.currentTimeMillis();
-				
-				while(true) {
-					long now = System.currentTimeMillis();
-					long timeUntilEnd = startTime + driveBackDuration - now;
-					
-					//Stop waiting if scan is complete
-					if (Thread.interrupted()) {
-						System.out.println("Drive back was interrupted.");
-						isScanRunning = false;
-						return;
-					}
-					if (timeUntilEnd <= 0) {
-						break;
-					}
-					else {
-						//Sleep for a while
-						try {
-							Thread.sleep(Math.min(timeUntilEnd + 1, delay));
-						} catch (InterruptedException e) {
-							System.out.println("Drive back was interrupted.");
-							isScanRunning = false;
-							return;
-						}
-					}
-				}
-				
-				//Driving back complete - stop motors
-				stopMotors();
-				
-				//Play sound to indicate, that another scanning process can be started now
-				playBeep();
+//				//Play drive back indicator
+//				playDoubleBeep();
+//				
+//				//Wait again
+//				try {
+//					Thread.sleep(2000);
+//				} catch (InterruptedException e) {
+//					System.out.println("Drive back was interrupted.");
+//					isScanRunning = false;
+//					return;
+//				}
+//				
+//				//Start driving back
+//				int driveBackDuration = configuration.getScanDistanceWithOffset() / configuration.getSpeedScanBackward();
+//				startMotors(configuration.getSpeedScanBackward(), false);
+//				startTime = System.currentTimeMillis();
+//				
+//				while(true) {
+//					long now = System.currentTimeMillis();
+//					long timeUntilEnd = startTime + driveBackDuration - now;
+//					
+//					//Stop waiting if scan is complete
+//					if (Thread.interrupted()) {
+//						System.out.println("Drive back was interrupted.");
+//						isScanRunning = false;
+//						return;
+//					}
+//					if (timeUntilEnd <= 0) {
+//						break;
+//					}
+//					else {
+//						//Sleep for a while
+//						try {
+//							Thread.sleep(Math.min(timeUntilEnd + 1, delay));
+//						} catch (InterruptedException e) {
+//							System.out.println("Drive back was interrupted.");
+//							isScanRunning = false;
+//							return;
+//						}
+//					}
+//				}
+//				
+//				//Driving back complete - stop motors
+//				stopMotors();
+//				
+//				//Play sound to indicate, that another scanning process can be started now
+//				playBeep();
 				
 				isScanRunning = false;
 			}
@@ -292,6 +300,7 @@ public class ScannerController {
 			connectionThread.interrupt();
 		}
 		else {
+			stopMotors();
 			if (scannerThread != null) {
 				scannerThread.interrupt();
 			}
@@ -301,7 +310,6 @@ public class ScannerController {
 			if (canStopSense) {
 				stopSense();
 			}
-			stopMotors();
 			closeMotors();
 			System.out.println("Closed connection.");
 			brickConnected = false;
@@ -400,10 +408,18 @@ public class ScannerController {
 			try {
 				Robot bot = new Robot();
 				//window.setState(Frame.ICONIFIED);
-				bot.mouseMove(screenSize.width / 2, (int) (screenSize.height * 0.93));
-				bot.mousePress(InputEvent.BUTTON1_MASK);
-				bot.mouseRelease(InputEvent.BUTTON1_MASK);
-				bot.mouseMove(mouseLocation.x, mouseLocation.y);
+				int x = screenSize.width / 2;
+				int y = getYWithColor(bot, x, SENSE_COLOR_DEFAULT);
+				
+				if (y != -1) {
+					System.out.println("Simulate click on " + x + "/" + y);
+					
+					moveMouseTo(bot, x, y, ATTEMPTS_MOUSE_MOVE);
+					
+					bot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+					bot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+					moveMouseTo(bot, mouseLocation.x, mouseLocation.y, ATTEMPTS_MOUSE_MOVE);
+				}
 			} catch (AWTException e) {				
 			}
 		}
@@ -432,11 +448,20 @@ public class ScannerController {
 			Point mouseLocation = MouseInfo.getPointerInfo().getLocation();
 			try {
 				Robot bot = new Robot();
-				bot.mouseMove(screenSize.width / 2, (int) (screenSize.height * 0.93));
-				bot.mousePress(InputEvent.BUTTON1_MASK);
-				bot.mouseRelease(InputEvent.BUTTON1_MASK);
-				bot.mouseMove(mouseLocation.x, mouseLocation.y);
-			} catch (AWTException e) {				
+				int x = screenSize.width / 2;
+				int y = getYWithColor(bot, x, SENSE_COLOR_ACTIVE);
+				
+				if (y != -1) {
+				
+					System.out.println("Simulate click on " + x + "/" + y);
+					
+					moveMouseTo(bot, x, y, ATTEMPTS_MOUSE_MOVE);
+					
+					bot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+					bot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+					moveMouseTo(bot, mouseLocation.x, mouseLocation.y, ATTEMPTS_MOUSE_MOVE);
+				}
+			} catch (AWTException e) {
 			}
 		}
 		canStopSense = false;
@@ -497,5 +522,40 @@ public class ScannerController {
 			}
 		}
 		return result;
+	}
+	
+	private void moveMouseTo(Robot bot, int x, int y, int maxAttempts) {
+		boolean positionCorrect = false;
+		int attempts = 0;
+		do {
+			bot.mouseMove(x, y);
+			attempts++;
+			Point location = MouseInfo.getPointerInfo().getLocation();
+			if (location.x != x || location.y != y) {
+				positionCorrect = false;
+			}
+			else {
+				positionCorrect = true;
+			}
+		} while(!positionCorrect && attempts < maxAttempts);
+	}
+	
+	private int getYWithColor(Robot bot, int x, Color color) {
+		Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+		int y = screen.height - 1;
+		BufferedImage screenShot = bot.createScreenCapture(new Rectangle(0, 0, screen.width, screen.height));
+		while (y >= 0 && !getColor(screenShot, x, y).equals(color)) {
+			y--;
+		}
+		screenShot.flush();
+		return y;
+	}
+	
+	private Color getColor(BufferedImage image, int x, int y) {
+		int clr=  image.getRGB(x, y); 
+		int  red   = (clr & 0x00ff0000) >> 16;
+		int  green = (clr & 0x0000ff00) >> 8;
+		int  blue  =  clr & 0x000000ff;
+		return new Color(red, green, blue);
 	}
 }
