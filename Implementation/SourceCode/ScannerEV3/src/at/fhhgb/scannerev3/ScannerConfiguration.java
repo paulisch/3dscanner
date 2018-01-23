@@ -1,4 +1,4 @@
-package at.fhhgb.scanner;
+package at.fhhgb.scannerev3;
 
 
 import java.util.ArrayList;

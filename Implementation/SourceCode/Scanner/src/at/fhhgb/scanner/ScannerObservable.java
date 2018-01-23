@@ -12,6 +12,7 @@ public class ScannerObservable extends Observable {
 	private long startTime = -1;
 	private boolean isScanning = false;
 	private boolean shouldResetBrick = false;
+	private float battery = 0f;
 	
 	//Connection state
 	private boolean isConnected = false;
@@ -72,6 +73,18 @@ public class ScannerObservable extends Observable {
 
 	public void setShouldResetBrick(boolean shouldResetBrick) {
 		this.shouldResetBrick = shouldResetBrick;
+		setChanged();
+		notifyObservers();
+	}
+
+	public float getBattery() {
+		return battery;
+	}
+
+	public void setBattery(float battery) {
+		this.battery = battery;
+		setChanged();
+		notifyObservers();
 	}
 
 	public boolean isConnected() {
@@ -111,5 +124,15 @@ public class ScannerObservable extends Observable {
 	
 	public int getTimeRemaining() {
 		return (duration - getTimePassed());
+	}
+	
+	@Override
+	public void notifyObservers() {
+		try {
+			super.notifyObservers(null);
+		}
+		catch(Exception e) {
+			System.out.println("Notify observer error:\r\n" + e.getMessage());
+		}
 	}
 }

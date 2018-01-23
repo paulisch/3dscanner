@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.7"/>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/ScannerEV3/lib/commons-cli.jar"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/ScannerEV3/lib/dbusjava.jar"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/ScannerEV3/lib/ev3classes.jar"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/ScannerEV3/lib/ev3tools.jar"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/ScannerEV3/lib/jcommon.jar"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/ScannerEV3/lib/jfreechart.jar"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/ScannerEV3/lib/jsch-0.1.50.jar"/>
+	<classpathentry kind="lib" path="D:/projects/3dscanner/Implementation/SourceCode/ScannerEV3/lib/opencv-2411.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

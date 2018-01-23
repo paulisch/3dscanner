@@ -23,6 +23,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import javax.swing.JFrame;
 import lejos.hardware.Audio;
 import lejos.hardware.DeviceException;
+import lejos.hardware.Power;
 import lejos.remote.ev3.RMIRegulatedMotor;
 import lejos.remote.ev3.RemoteEV3;
 
@@ -31,6 +32,8 @@ public class ScannerController {
 	private static final int ATTEMPTS_MOUSE_MOVE = 10;
 	private static final Color SENSE_COLOR_ACTIVE = new Color(0, 174, 240);
 	private static final Color SENSE_COLOR_DEFAULT = new Color(106, 106, 106);
+	
+	private static final int DELAY_BATTERY_STATUS = 5000;
 	
 	private static final int DELAY_SENSE_SCAN = 3500;
 	private static final int PROGRESS_UPDATE_RATE = 30;
@@ -48,6 +51,9 @@ public class ScannerController {
 	private boolean canStopSense = false;
 	
 	private Thread scannerThread = null;
+	
+	private Thread batteryStatusThread = null;
+	private boolean batteryStatusThreadRunning = false;
 	
 	private Thread audioThread = null;
 	private BlockingQueue<Runnable> audioQueue = null;
@@ -79,13 +85,20 @@ public class ScannerController {
 						System.out.println("Connecting...");
 						scannerObservable.setConnecting(brickConnecting);
 						closeMotors();
+						
+						//Create brick connection
 						brick = new RemoteEV3(configuration.getIp());
 						brick.setDefault();
 						
+						//Get motors
 						motors = new ArrayList<>(configuration.getMotorsCount());
 						for(String motorPort : configuration.getPortsMotors()) {
 							motors.add(brick.createRegulatedMotor(motorPort, 'L'));
 						}
+						
+						//Start fetching battery status
+						fetchBatteryStatus();
+						
 						brickConnected = true;
 					} catch (DeviceException e) {
 						System.out.println("Ports in use, reset brick.");
@@ -99,12 +112,12 @@ public class ScannerController {
 						brickConnected = false;
 					} finally {
 						brickConnecting = false;
-						scannerObservable.setConnecting(brickConnecting);
 						if (Thread.interrupted()) {
 							System.out.println("Connecting interrupted, going to close.");
 							close();
 						}
 						else {
+							scannerObservable.setConnecting(brickConnecting);
 							scannerObservable.setConnected(brickConnected);
 						}
 						
@@ -241,6 +254,8 @@ public class ScannerController {
 					return;
 				}
 				
+				playDoubleBeep();
+				
 //				//Play drive back indicator
 //				playDoubleBeep();
 //				
@@ -307,6 +322,9 @@ public class ScannerController {
 			if (audioThread != null) {
 				audioThread.interrupt();
 			}
+			if (batteryStatusThread != null) {
+				batteryStatusThread.interrupt();
+			}
 			if (canStopSense) {
 				stopSense();
 			}
@@ -338,7 +356,9 @@ public class ScannerController {
 	
 	private Audio getAudio() {
 		if (brick != null) {
-			return brick.getAudio();
+			synchronized(brick) {
+				return brick.getAudio();
+			}
 		}
 		return null;
 	}
@@ -359,6 +379,7 @@ public class ScannerController {
 							r.run();
 						}
 					} catch(InterruptedException ex) {
+						System.out.println("Interrupted audio queue thread");
 						audioQueueRunning = false;
 					}
 				}
@@ -367,24 +388,60 @@ public class ScannerController {
 		}
 	}
 	
-	private void startMotors(int speed, boolean forward) {
-		if (brickConnected) {
-			try {
-				for(int i=0; i<motors.size(); i++) {
-					RMIRegulatedMotor motor = motors.get(i);
-					motor.setSpeed(speed);
-					if (forward) {
-						motor.forward();
-					}
-					else {
-						motor.backward();
+	private void fetchBatteryStatus() {
+		if (!batteryStatusThreadRunning) {
+			batteryStatusThreadRunning = true;
+			batteryStatusThread = new Thread() {
+				public void run() {
+					try {
+						while (true) {
+							if (brick != null) {
+								synchronized(brick) {
+									Power p = brick.getPower();
+									if (p != null) {
+										float status = p.getVoltage() / 9f;
+										if (status < 0) {
+											status = 0;
+										}
+										if (status > 1) {
+											status = 1;
+										}
+										scannerObservable.setBattery(status);
+									}
+								}
+							}
+							Thread.sleep(DELAY_BATTERY_STATUS);
+						}
+					} catch (InterruptedException e) {
+						System.out.println("Interrupted battery status thread");
+						batteryStatusThreadRunning = false;
 					}
 				}
-				System.out.println("Started motors.");
-			} catch (RemoteException e) {
-				System.out.println("Failed to start motors.");
-				brickConnected = false;
-				scannerObservable.setConnected(brickConnected);
+			};
+			batteryStatusThread.start();
+		}
+	}
+	
+	private void startMotors(int speed, boolean forward) {
+		if (brickConnected && motors != null) {
+			synchronized(motors) {
+				try {
+					for(int i=0; i<motors.size(); i++) {
+						RMIRegulatedMotor motor = motors.get(i);
+						motor.setSpeed(speed);
+						if (forward) {
+							motor.forward();
+						}
+						else {
+							motor.backward();
+						}
+					}
+					System.out.println("Started motors.");
+				} catch (RemoteException e) {
+					System.out.println("Failed to start motors.");
+					brickConnected = false;
+					scannerObservable.setConnected(brickConnected);
+				}
 			}
 		}
 	}
@@ -426,17 +483,19 @@ public class ScannerController {
 	}
 	
 	private void stopMotors() {
-		if (brickConnected) {
-			try {
-				for(int i=0; i<motors.size(); i++) {
-					RMIRegulatedMotor motor = motors.get(i);
-					motor.stop(true);
+		if (brickConnected && motors != null) {
+			synchronized(motors) {
+				try {
+					for(int i=0; i<motors.size(); i++) {
+						RMIRegulatedMotor motor = motors.get(i);
+						motor.stop(true);
+					}
+					System.out.println("Stopped motors.");
+				} catch (RemoteException e) {
+					System.out.println("Failed to stop motors.");
+					brickConnected = false;
+					scannerObservable.setConnected(brickConnected);
 				}
-				System.out.println("Stopped motors.");
-			} catch (RemoteException e) {
-				System.out.println("Failed to stop motors.");
-				brickConnected = false;
-				scannerObservable.setConnected(brickConnected);
 			}
 		}
 	}
@@ -469,18 +528,20 @@ public class ScannerController {
 	
 	private void closeMotors() {
 		if (motors != null) {
-			try {
-				for(int i=0; i<motors.size(); i++) {
-					RMIRegulatedMotor motor = motors.get(i);
-					motor.close();
+			synchronized(motors) {
+				try {
+					for(int i=0; i<motors.size(); i++) {
+						RMIRegulatedMotor motor = motors.get(i);
+						motor.close();
+					}
+					System.out.println("Closed motors.");
+				} catch (RemoteException e) {
+					System.out.println("Failed to close motors.");
+					brickConnected = false;
+					scannerObservable.setConnected(brickConnected);
+				} finally {
+					motors = null;
 				}
-				System.out.println("Closed motors.");
-			} catch (RemoteException e) {
-				System.out.println("Failed to close motors.");
-				brickConnected = false;
-				scannerObservable.setConnected(brickConnected);
-			} finally {
-				motors = null;
 			}
 		}
 	}
@@ -552,7 +613,7 @@ public class ScannerController {
 	}
 	
 	private Color getColor(BufferedImage image, int x, int y) {
-		int clr=  image.getRGB(x, y); 
+		int clr    =  image.getRGB(x, y); 
 		int  red   = (clr & 0x00ff0000) >> 16;
 		int  green = (clr & 0x0000ff00) >> 8;
 		int  blue  =  clr & 0x000000ff;

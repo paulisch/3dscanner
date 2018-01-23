@@ -3,6 +3,7 @@ package at.fhhgb.scanner;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.EventQueue;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.awt.Image;
@@ -47,6 +48,7 @@ public class ScannerWindow extends JFrame implements Observer {
 	private JLabel statusLabel = null;
 	private JButton reconnectButton = null;
 	
+	private JProgressBar batteryStatusBar = null;
 	private JProgressBar progressBar = null;
 	private JLabel timePassedLabel = null;
 	private JLabel timeRemainingLabel = null;
@@ -66,14 +68,15 @@ public class ScannerWindow extends JFrame implements Observer {
             @Override
             public void windowClosing(WindowEvent e)
             {
-            	e.getWindow().dispose();
             	controller.close();
+            	//e.getWindow().dispose();
             }
         });
 		
 		setTitle("3D-Scanner - Fuchs, Schmutz");
 		setIconImages(loadIconImages(new String[] { "/resources/logo_32.png", "/resources/logo_64.png", "/resources/logo_128.png" }));
 		setAlwaysOnTop(true);
+		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 		
 		//Set size
 		setMaximumSize(WINDOW_SIZE);
@@ -101,9 +104,12 @@ public class ScannerWindow extends JFrame implements Observer {
 		contentPanel.add(northPanel, BorderLayout.PAGE_START);
 		
 		//Center buttons
+		JPanel centerContainer = new JPanel();
+		centerContainer.setBorder(BorderFactory.createEmptyBorder(32,32,32,32));
+		centerContainer.setLayout(new BorderLayout(0, 16));
+		
 		JPanel centerPanel = new JPanel();
-		centerPanel.setBorder(BorderFactory.createEmptyBorder(32,32,32,32));
-		centerPanel.setLayout(new GridLayout(2, 2, 64, 64));
+		centerPanel.setLayout(new GridLayout(2, 2, 48, 48));
 		JButton backwardButton = createButton("/resources/left.png", 100, "<");
 		JButton forwardButton = createButton("/resources/right.png", 100, ">");
 		JButton scanButton = createButton("/resources/play.png", 120, "SCAN");
@@ -112,14 +118,35 @@ public class ScannerWindow extends JFrame implements Observer {
 		centerPanel.add(forwardButton);
 		centerPanel.add(scanButton);
 		centerPanel.add(stopButton);
-		contentPanel.add(centerPanel, BorderLayout.CENTER);
+		centerContainer.add(centerPanel, BorderLayout.CENTER);
+		
+		JPanel centerNorthPanel = new JPanel();
+		centerNorthPanel.setLayout(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+		UIManager.put("ProgressBar.selectionForeground", Color.black);
+		UIManager.put("ProgressBar.selectionBackground", Color.black);
+		batteryStatusBar = new JProgressBar(0, 100);
+		batteryStatusBar.setPreferredSize(new Dimension(110, 30));
+	    batteryStatusBar.setBackground(Color.white);
+		batteryStatusBar.setString("");
+		batteryStatusBar.setStringPainted(true);
+		batteryStatusBar.setValue(0);
+		centerNorthPanel.add(batteryStatusBar);
+		
+		JLabel batLabel = new JLabel();
+		batLabel.setVerticalAlignment(SwingConstants.CENTER);
+		batLabel.setPreferredSize(new Dimension(4, 13));
+		batLabel.setBorder(BorderFactory.createLineBorder(Color.gray, 1));
+		centerNorthPanel.add(batLabel);
+		
+		
+		centerContainer.add(centerNorthPanel, BorderLayout.PAGE_START);
+		
+		contentPanel.add(centerContainer, BorderLayout.CENTER);
 		
 		//Bottom progress
 		JPanel bottomPanel = new JPanel();
 		bottomPanel.setLayout(new GridLayout(2, 1));
 		bottomPanel.setBorder(BorderFactory.createEmptyBorder(0, 32, 16, 32));
-		UIManager.put("ProgressBar.selectionForeground", Color.black);
-		UIManager.put("ProgressBar.selectionBackground", Color.black);
 		progressBar = new JProgressBar(0, PROGRESS_RESOLUTION);
 		progressBar.setBackground(Color.white);
 		progressBar.setForeground(COLOR_CONNECTED);
@@ -250,47 +277,57 @@ public class ScannerWindow extends JFrame implements Observer {
 
 	@Override
 	public void update(Observable observable, Object argument) {
-		reconnectButton.setVisible(!scannerObservable.isConnecting() && !scannerObservable.isConnected());
-		
-		if (scannerObservable.isConnecting()) {
-			if (!COLOR_CONNECTING.equals(northPanel.getBackground())) {
-				northPanel.setBackground(COLOR_CONNECTING);
-				statusLabel.setText("Connecting...");
-			}
-		}
-		else if (scannerObservable.isConnected()) {
-			if (!COLOR_CONNECTED.equals(northPanel.getBackground())) {
-				northPanel.setBackground(COLOR_CONNECTED);
-				statusLabel.setText("Connected");
-				
-				//Play sound to indicate that connection works
-				controller.playBeep();
-			}
-		}
-		else {
-			if (scannerObservable.isShouldResetBrick()) {
-				northPanel.setBackground(COLOR_DISCONNECTED);
-				statusLabel.setText("Not connected. Ports in use. Select system > reset on the brick and retry.");
-			}
-			else {
-				northPanel.setBackground(COLOR_DISCONNECTED);
-				statusLabel.setText("Not connected");
-			}
-		}
-		
-		if (scannerObservable.isScanning()) {
-			double progress = scannerObservable.getProgress();
-			int progressPercent = (int)(progress * 100);
-			progressBar.setValue((int)(progress * PROGRESS_RESOLUTION));
-			progressBar.setString(progressPercent + "%");
-			timePassedLabel.setText(scannerObservable.getTimePassed()/1000 + "s");
-			timeRemainingLabel.setText(scannerObservable.getTimeRemaining()/1000 + "s");
-		}
-		else {
-			progressBar.setValue(0);
-			progressBar.setString("");
-			timePassedLabel.setText("");
-			timeRemainingLabel.setText("");
-		}
+		EventQueue.invokeLater(new Runnable() {
+            public void run() {
+            	reconnectButton.setVisible(!scannerObservable.isConnecting() && !scannerObservable.isConnected());
+        		
+        		if (scannerObservable.isConnecting()) {
+        			if (!COLOR_CONNECTING.equals(northPanel.getBackground())) {
+        				northPanel.setBackground(COLOR_CONNECTING);
+        				statusLabel.setText("Connecting...");
+        			}
+        		}
+        		else if (scannerObservable.isConnected()) {
+        			if (!COLOR_CONNECTED.equals(northPanel.getBackground())) {
+        				northPanel.setBackground(COLOR_CONNECTED);
+        				statusLabel.setText("Connected");
+        				
+        				//Play sound to indicate that connection works
+        				controller.playBeep();
+        			}
+        		}
+        		else {
+        			if (scannerObservable.isShouldResetBrick()) {
+        				northPanel.setBackground(COLOR_DISCONNECTED);
+        				statusLabel.setText("Not connected. Ports in use. Select system > reset on the brick and retry.");
+        			}
+        			else {
+        				northPanel.setBackground(COLOR_DISCONNECTED);
+        				statusLabel.setText("Not connected");
+        			}
+        		}
+        		
+        		if (scannerObservable.isScanning()) {
+        			double progress = scannerObservable.getProgress();
+        			int progressPercent = (int)(progress * 100);
+        			progressBar.setValue((int)(progress * PROGRESS_RESOLUTION));
+        			progressBar.setString(progressPercent + "%");
+        			timePassedLabel.setText(scannerObservable.getTimePassed()/1000 + "s");
+        			timeRemainingLabel.setText(scannerObservable.getTimeRemaining()/1000 + "s");
+        		}
+        		else {
+        			progressBar.setValue(0);
+        			progressBar.setString("");
+        			timePassedLabel.setText("");
+        			timeRemainingLabel.setText("");
+        		}
+        		
+        		float batteryPercentage = scannerObservable.getBattery();
+        		Color batteryColor = new Color((int)(255 * (1.0 - batteryPercentage)), (int)(255 * batteryPercentage), 0);
+        		batteryStatusBar.setValue((int)(batteryPercentage * 100));
+        		batteryStatusBar.setString("Battery: " + (int)(batteryPercentage * 100) + "%");
+        		batteryStatusBar.setForeground(batteryColor);
+            }
+        });
 	}
 }
